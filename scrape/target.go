@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scrape
+package 
 
 import (
 	"fmt"
@@ -38,7 +38,7 @@ import (
 // TargetHealth describes the health state of a target.
 type TargetHealth string
 
-// The possible health states of a target based on the last performed scrape.
+// The possible health states of a target based on the last performed .
 const (
 	HealthUnknown TargetHealth = "unknown"
 	HealthGood    TargetHealth = "up"
@@ -56,8 +56,8 @@ type Target struct {
 
 	mtx                sync.RWMutex
 	lastError          error
-	lastScrape         time.Time
-	lastScrapeDuration time.Duration
+	last         time.Time
+	lastDuration time.Duration
 	health             TargetHealth
 	metadata           MetricMetadataStore
 }
@@ -153,8 +153,8 @@ func (t *Target) hash() uint64 {
 	return h.Sum64()
 }
 
-// offset returns the time until the next scrape cycle for the target.
-// It includes the global server offsetSeed for scrapes from multiple Prometheus to try to be at different times.
+// offset returns the time until the next  cycle for the target.
+// It includes the global server offsetSeed for s from multiple Prometheus to try to be at different times.
 func (t *Target) offset(interval time.Duration, offsetSeed uint64) time.Duration {
 	now := time.Now().UnixNano()
 
@@ -227,6 +227,7 @@ func (t *Target) URL() *url.URL {
 	})
 
 	return &url.URL{
+		// 配置文件的target
 		Scheme:   t.labels.Get(model.SchemeLabel),
 		Host:     t.labels.Get(model.AddressLabel),
 		Path:     t.labels.Get(model.MetricsPathLabel),
@@ -234,7 +235,7 @@ func (t *Target) URL() *url.URL {
 	}
 }
 
-// Report sets target data about the last scrape.
+// Report sets target data about the last .
 func (t *Target) Report(start time.Time, dur time.Duration, err error) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
@@ -246,11 +247,11 @@ func (t *Target) Report(start time.Time, dur time.Duration, err error) {
 	}
 
 	t.lastError = err
-	t.lastScrape = start
-	t.lastScrapeDuration = dur
+	t.last = start
+	t.lastDuration = dur
 }
 
-// LastError returns the error encountered during the last scrape.
+// LastError returns the error encountered during the last .
 func (t *Target) LastError() error {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
@@ -258,20 +259,20 @@ func (t *Target) LastError() error {
 	return t.lastError
 }
 
-// LastScrape returns the time of the last scrape.
-func (t *Target) LastScrape() time.Time {
+// Last returns the time of the last .
+func (t *Target) Last() time.Time {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 
-	return t.lastScrape
+	return t.last
 }
 
-// LastScrapeDuration returns how long the last scrape of the target took.
-func (t *Target) LastScrapeDuration() time.Duration {
+// LastDuration returns how long the last  of the target took.
+func (t *Target) LastDuration() time.Duration {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 
-	return t.lastScrapeDuration
+	return t.lastDuration
 }
 
 // Health returns the last known health state of the target.
@@ -288,12 +289,12 @@ func (t *Target) intervalAndTimeout(defaultInterval, defaultDuration time.Durati
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
 
-	intervalLabel := t.labels.Get(model.ScrapeIntervalLabel)
+	intervalLabel := t.labels.Get(model.IntervalLabel)
 	interval, err := model.ParseDuration(intervalLabel)
 	if err != nil {
 		return defaultInterval, defaultDuration, errors.Errorf("Error parsing interval label %q: %v", intervalLabel, err)
 	}
-	timeoutLabel := t.labels.Get(model.ScrapeTimeoutLabel)
+	timeoutLabel := t.labels.Get(model.TimeoutLabel)
 	timeout, err := model.ParseDuration(timeoutLabel)
 	if err != nil {
 		return defaultInterval, defaultDuration, errors.Errorf("Error parsing timeout label %q: %v", timeoutLabel, err)
@@ -384,38 +385,56 @@ func (app *bucketLimitAppender) AppendHistogram(ref storage.SeriesRef, lset labe
 	return ref, nil
 }
 
-// PopulateLabels builds a label set from the given label set and scrape configuration.
+/*
+	PopulateLabels函数在Go语言中用于填充标签。它接收一个标签构建器(labels.Builder)，一个抓取配置(config.Config)，以及一个布尔值(noDefaultPort)作为参数。
+	1. 将抓取配置(cfg)中的一些字段（如工作名、抓取间隔、抓取超时、度量路径、方案等）作为标签添加到标签构建器(lb)中，如果这些标签还未被设置。
+	2. 将抓取配置(cfg)中的参数作为标签添加到标签构建器(lb)中。
+	3. 应用重标签配置(cfg.RelabelConfigs)，并检查目标是否在重标签过程中被丢弃。
+	4. 检查地址标签是否存在，如果不存在则返回错误。
+	5. 根据方案和地址，可能会添加默认端口。
+	6. 检查地址是否有效。
+	7. 检查抓取间隔和抓取超时是否有效。
+	8. 删除所有元标签（以__meta_为前缀的标签）。
+	9. 如果实例标签不存在，则将其设置为地址。
+	10. 验证所有标签值是否有效。
+	函数返回处理后的标签集(res)，处理前的标签集(orig)，以及可能的错误(err)。如果在处理过程中出现错误，或者目标在重标签过程中被丢弃，那么返回的标签集将为空。
+*/
+// PopulateLabels builds a label set from the given label set and  configuration.
 // It returns a label set before relabeling was applied as the second return value.
 // Returns the original discovered label set found before relabelling was applied if the target is dropped during relabeling.
-func PopulateLabels(lb *labels.Builder, cfg *config.ScrapeConfig, noDefaultPort bool) (res, orig labels.Labels, err error) {
+func PopulateLabels(lb *labels.Builder, cfg *config.Config, noDefaultPort bool) (res, orig labels.Labels, err error) {
+
 	// Copy labels into the labelset for the target if they are not set already.
-	scrapeLabels := []labels.Label{
-		{Name: model.JobLabel, Value: cfg.JobName},
-		{Name: model.ScrapeIntervalLabel, Value: cfg.ScrapeInterval.String()},
-		{Name: model.ScrapeTimeoutLabel, Value: cfg.ScrapeTimeout.String()},
-		{Name: model.MetricsPathLabel, Value: cfg.MetricsPath},
-		{Name: model.SchemeLabel, Value: cfg.Scheme},
+	Labels := []labels.Label{
+		{Name: model.JobLabel, Value: cfg.JobName},                            //其值是抓取任务的名称。在 Prometheus 中，一个“job”可以包含多个抓取目标。
+		{Name: model.IntervalLabel, Value: cfg.Interval.String()}, //标签的值是抓取间隔的字符串表示。抓取间隔是 Prometheus 从目标处抓取数据的频率
+		{Name: model.TimeoutLabel, Value: cfg.Timeout.String()},   //标签的值是抓取超时的字符串表示。如果在这个时间内 Prometheus 无法完成对目标的抓取，那么这次抓取就会被视为失败。
+		{Name: model.MetricsPathLabel, Value: cfg.MetricsPath},                //标签的值是从目标处抓取指标的 HTTP 路径。
+		{Name: model.SchemeLabel, Value: cfg.Scheme},                          //签的值是用于抓取目标的协议方案，通常是 "http" 或 "https"。
 	}
 
-	for _, l := range scrapeLabels {
+	for _, l := range Labels {
 		if lb.Get(l.Name) == "" {
 			lb.Set(l.Name, l.Value)
 		}
 	}
-	// Encode scrape query parameters as labels.
+	// Encode  query parameters as labels.
 	for k, v := range cfg.Params {
 		if len(v) > 0 {
-			lb.Set(model.ParamLabelPrefix+k, v[0])
+			lb.Set(model.ParamLabelPrefix+k, v[0]) // append "__param__"
 		}
 	}
 
 	preRelabelLabels := lb.Labels()
+	// relabels
 	keep := relabel.ProcessBuilder(lb, cfg.RelabelConfigs...)
 
 	// Check if the target was dropped.
 	if !keep {
 		return labels.EmptyLabels(), preRelabelLabels, nil
 	}
+	// =====
+	// handle labels addr
 	if v := lb.Get(model.AddressLabel); v == "" {
 		return labels.EmptyLabels(), labels.EmptyLabels(), errors.New("no address")
 	}
@@ -437,7 +456,7 @@ func PopulateLabels(lb *labels.Builder, cfg *config.ScrapeConfig, noDefaultPort 
 	scheme := lb.Get(model.SchemeLabel)
 	host, port, add := addPort(addr)
 	// If it's an address with no trailing port, infer it based on the used scheme
-	// unless the no-default-scrape-port feature flag is present.
+	// unless the no-default--port feature flag is present.
 	if !noDefaultPort && add {
 		// Addresses reaching this point are already wrapped in [] if necessary.
 		switch scheme {
@@ -453,7 +472,7 @@ func PopulateLabels(lb *labels.Builder, cfg *config.ScrapeConfig, noDefaultPort 
 
 	if noDefaultPort {
 		// If it's an address with a trailing default port and the
-		// no-default-scrape-port flag is present, remove the port.
+		// no-default--port flag is present, remove the port.
 		switch port {
 		case "80":
 			if scheme == "http" {
@@ -470,31 +489,33 @@ func PopulateLabels(lb *labels.Builder, cfg *config.ScrapeConfig, noDefaultPort 
 		return labels.EmptyLabels(), labels.EmptyLabels(), err
 	}
 
-	interval := lb.Get(model.ScrapeIntervalLabel)
+	// ====
+	interval := lb.Get(model.IntervalLabel)
 	intervalDuration, err := model.ParseDuration(interval)
 	if err != nil {
-		return labels.EmptyLabels(), labels.EmptyLabels(), errors.Errorf("error parsing scrape interval: %v", err)
+		return labels.EmptyLabels(), labels.EmptyLabels(), errors.Errorf("error parsing  interval: %v", err)
 	}
 	if time.Duration(intervalDuration) == 0 {
-		return labels.EmptyLabels(), labels.EmptyLabels(), errors.New("scrape interval cannot be 0")
+		return labels.EmptyLabels(), labels.EmptyLabels(), errors.New(" interval cannot be 0")
 	}
 
-	timeout := lb.Get(model.ScrapeTimeoutLabel)
+	timeout := lb.Get(model.TimeoutLabel)
 	timeoutDuration, err := model.ParseDuration(timeout)
 	if err != nil {
-		return labels.EmptyLabels(), labels.EmptyLabels(), errors.Errorf("error parsing scrape timeout: %v", err)
+		return labels.EmptyLabels(), labels.EmptyLabels(), errors.Errorf("error parsing  timeout: %v", err)
 	}
 	if time.Duration(timeoutDuration) == 0 {
-		return labels.EmptyLabels(), labels.EmptyLabels(), errors.New("scrape timeout cannot be 0")
+		return labels.EmptyLabels(), labels.EmptyLabels(), errors.New(" timeout cannot be 0")
 	}
 
 	if timeoutDuration > intervalDuration {
-		return labels.EmptyLabels(), labels.EmptyLabels(), errors.Errorf("scrape timeout cannot be greater than scrape interval (%q > %q)", timeout, interval)
+		return labels.EmptyLabels(), labels.EmptyLabels(), errors.Errorf(" timeout cannot be greater than  interval (%q > %q)", timeout, interval)
 	}
 
 	// Meta labels are deleted after relabelling. Other internal labels propagate to
 	// the target which decides whether they will be part of their label set.
 	lb.Range(func(l labels.Label) {
+		// 服务发现源会打上__mate__这些标签，但是服务发现还不能确定，所以需要去除
 		if strings.HasPrefix(l.Name, model.MetaLabelPrefix) {
 			lb.Del(l.Name)
 		}
@@ -502,6 +523,7 @@ func PopulateLabels(lb *labels.Builder, cfg *config.ScrapeConfig, noDefaultPort 
 
 	// Default the instance label to the target address.
 	if v := lb.Get(model.InstanceLabel); v == "" {
+		// append port to addr
 		lb.Set(model.InstanceLabel, addr)
 	}
 
@@ -520,7 +542,7 @@ func PopulateLabels(lb *labels.Builder, cfg *config.ScrapeConfig, noDefaultPort 
 }
 
 // TargetsFromGroup builds targets based on the given TargetGroup and config.
-func TargetsFromGroup(tg *targetgroup.Group, cfg *config.ScrapeConfig, noDefaultPort bool, targets []*Target, lb *labels.Builder) ([]*Target, []error) {
+func TargetsFromGroup(tg *targetgroup.Group, cfg *config.Config, noDefaultPort bool, targets []*Target, lb *labels.Builder) ([]*Target, []error) {
 	targets = targets[:0]
 	failures := []error{}
 
