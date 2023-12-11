@@ -594,6 +594,7 @@ func checkConfig(agentMode bool, filename string, checkSyntaxOnly bool) ([]strin
 		}
 
 		for _, c := range scfg.ServiceDiscoveryConfigs {
+			// sdconfig or static config
 			switch c := c.(type) {
 			case *kubernetes.SDConfig:
 				if err := checkTLSConfig(c.HTTPClientConfig.TLSConfig, checkSyntaxOnly); err != nil {

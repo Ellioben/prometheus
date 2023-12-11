@@ -198,6 +198,7 @@ func (m *Manager) ApplyConfig(cfg map[string]Configs) error {
 
 	var failedCount int
 	for name, scfg := range cfg {
+		// 注册服务发现源
 		failedCount += m.registerProviders(scfg, name)
 	}
 	failedConfigs.WithLabelValues(m.name).Set(float64(failedCount))
@@ -425,6 +426,7 @@ func (m *Manager) registerProviders(cfgs Configs, setName string) int {
 			}
 		}
 		typ := cfg.Name()
+		// 在registerProviders 调用各个服务发现源的NewDiscoverer方法，然后构造providers对象
 		d, err := cfg.NewDiscoverer(DiscovererOptions{
 			Logger:            log.With(m.logger, "discovery", typ, "config", setName),
 			HTTPClientOptions: m.httpOpts,

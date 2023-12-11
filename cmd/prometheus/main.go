@@ -220,6 +220,13 @@ func (c *flagConfig) setFeatureListOptions(logger log.Logger) error {
 }
 
 func main() {
+	/*
+		1. 打开了一个时间序列数据库（TSDB）实例。
+		2. 注册了一些Prometheus指标，如最低时间戳、头部最小时间和头部最大时间。
+		3. 加载了配置文件，并根据配置更新了一些参数。
+		4. 实现了一些与存储相关的方法，如获取起始时间、查询器、块查询器等。
+		5. 实现了一些与存储管理相关的方法，如清除墓碑数据、删除数据、创建快照等。
+	*/
 	if os.Getenv("DEBUG") != "" {
 		runtime.SetBlockProfileRate(20)
 		runtime.SetMutexProfileFraction(20)

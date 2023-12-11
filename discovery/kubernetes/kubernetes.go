@@ -293,6 +293,7 @@ func (d *Discovery) getNamespaces() []string {
 
 // New creates a new Kubernetes discovery for the given role.
 func New(l log.Logger, conf *SDConfig) (*Discovery, error) {
+	// 注入入k8s的方法，需要创建discover的rbac
 	if l == nil {
 		l = log.NewNopLogger()
 	}

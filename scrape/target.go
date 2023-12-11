@@ -557,7 +557,7 @@ func TargetsFromGroup(tg *targetgroup.Group, cfg *config.Config, noDefaultPort b
 				lb.Set(string(ln), string(lv))
 			}
 		}
-
+		// labels
 		lset, origLabels, err := PopulateLabels(lb, cfg, noDefaultPort)
 		if err != nil {
 			failures = append(failures, errors.Wrapf(err, "instance %d in group %s", i, tg))

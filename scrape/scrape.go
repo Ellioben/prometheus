@@ -1381,6 +1381,7 @@ func (sl *scrapeLoop) scrapeAndReport(last, appendTime time.Time, errc chan<- er
 	var b []byte
 	var buf *bytes.Buffer
 	scrapeCtx, cancel := context.WithTimeout(sl.parentCtx, sl.timeout)
+	// scrape the config
 	resp, scrapeErr = sl.scraper.scrape(scrapeCtx)
 	if scrapeErr == nil {
 		b = sl.buffers.Get(sl.lastScrapeSize).([]byte)
